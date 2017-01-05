@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+from operator import itemgetter
 import itertools
 
 from scipy.spatial.distance import pdist, squareform
@@ -6,8 +9,13 @@ from sklearn import metrics
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import DistanceMetric, NearestNeighbors
 
-from operator import itemgetter
+from math import degrees, radians, sin, cos, atan2, sqrt
 from utils import haversine
+
+eps_search = [0.005, 0.01, .015, .020, .025, .03] #distance in km
+min_samples_search = [5, 10, 25, 50, 100, 150]
+
+
 
 '''
 DISTANCE COMPUTATION
@@ -112,3 +120,52 @@ def fit_dbscan(X, eps_search=[0.005, 0.01, 0.015, 0.02], min_samples_search=[10,
     plt.title('Estimated number of clusters: %d' % n_clusters_)
     plt.show()
     return
+
+'''
+POST CLUSTERING -- choosing the cluster center
+'''
+
+def get_center(data, method='mean'):
+    '''
+    df: pd.DataFrame with lat/long columns
+    '''
+    df = data[(pd.notnull(data['lat'])) & (pd.notnull(data['long']))]
+    df['lat_rad'] = df['lat'].apply(radians)
+    df['long_rad'] = df['long'].apply(radians)
+
+    if method == 'mean':
+        # pre-compute trig
+        df['lat_cos'] = df['lat_rad'].apply(cos)
+        df['lat_sin'] = df['lat_rad'].apply(sin)
+        df['long_cos'] = df['long_rad'].apply(cos)
+        df['long_sin'] = df['long_rad'].apply(sin)
+
+        # compute center
+        N = len(df)
+        x = sum(df['lat_cos'] * df['long_cos'])/N
+        y = sum(df['lat_cos'] * df['long_sin'])/N
+        z = sum(df['lat_sin'])/N
+
+        long_rad = atan2(y, x)
+        hyp = sqrt(x * x + y * y)
+        lat_rad = atan2(z, hyp)
+
+    elif method == 'median':
+        lat_rad = df['lat_rad'].median()
+        long_rad = df['long_rad'].median()
+
+    # convert back from radians to degrees
+    lat = degrees(lat_rad)
+    long = degrees(long_rad)
+    return (lat, long)
+
+def get_cluster_centers(df, center_type='mean'):
+    centers = {}
+    labels = [x for x in df['cluster'].unique() if x >= 0]
+
+    cluster_grps = df.groupby('cluster')
+    for label in labels:
+        cluster_df = cluster_grps.get_group(label)
+        center = get_center(cluster_df, center_type)
+        centers[label] = center
+    return centers

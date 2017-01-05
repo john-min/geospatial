@@ -67,13 +67,16 @@ def get_dt_vars(ts):
         pass
     return (day, month, hour, day_of_week)
 
-def haversine_dist(lat1, lon1, lat2, lon2):
+def haversine_dist(lat1, lon1, lat2, lon2, measure='mi'):
     '''
     This function computes the haversine distance.
     Input: latitude/longitude coordinates
     Computes the great circle distance between two points on the earth.
     '''
-    R = 6373.0
+    if measure == 'mi':
+        R = 3958.75
+    elif measure == 'km':
+        R = 6373.0
     lat1 = radians(lat1)
     lon1 = radians(lon1)
     lat2 = radians(lat2)
